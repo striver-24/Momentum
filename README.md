@@ -1,4 +1,4 @@
-# Flow-State Engineering Agent 🚀
+# Momentum - Flow-State Engineering Agent 🚀
 
 [![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/striver-24/Momentum)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org)
@@ -8,7 +8,7 @@ An autonomous software development agent that transforms high-level business req
 
 ## 🎯 Overview
 
-The Flow-State Engineering Agent is designed to radically accelerate software development by automating the entire inner development loop. Simply provide natural language requirements, and receive fully tested, documented, and production-ready code in the form of a pull request.
+Momentum is designed to radically accelerate software development by automating the entire inner development loop. Simply provide natural language requirements, and receive fully tested, documented, and production-ready code in the form of a pull request.
 
 ### Key Features
 
