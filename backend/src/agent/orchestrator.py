@@ -1,36 +1,11 @@
-from enum import Enum
-
-class AgentState(Enum):
-    """
-    The possivle states of Momentum agent during its execution workflow.
-    """
-
-    STARTING = auto()
-    PLANNING = auto()
-    CODE_GENERATION = auto()
-    TESTING = auto()
-    AWAITING_REVIEW = auto()
-    FIXING = auto()
-    DONE = auto()
-    ERROR = auto()
-
-class StateMachine:
-    """
-    Class to manage agents curr state. 
-    """
-
+class MomentumAgent:
     def __init__(self):
-        self.curr_state = AgentState.STARTING
-    
-    def transition_to(self, new_state: AgentState):
-        """
-        Transitioning to a new state.
-        """
-        print(f"Transitioning from {self.curr_state} to {new_state}")
-        self.curr_state = new_state
+        print("Momentum Agent is initialized ....")
 
-    def get_state(self) -> AgentState:
+    def run(self, prompt: str):
         """
-        Get the current state.
+        Main execution loop for our agent.
         """
-        return self.curr_state
+        print(f"Recieved Prompt: {prompt}")
+        pass
+
