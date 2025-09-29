@@ -1,0 +1,5 @@
+# Environment Variables
+# ---------------------
+
+backend/.env # Ignore environment variable files
+backend/venv  # Ignore virtual environment directory
