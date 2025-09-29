@@ -1,5 +1,150 @@
 # Environment Variables
 # ---------------------
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+apps/frontend/.env
 
-backend/.env # Ignore environment variable files
-backend/venv  # Ignore virtual environment directory
+# Virtual Environments
+# -------------------
+venv/
+env/
+ENV/
+backend/venv/
+backend/env/
+backend/ENV/
+.venv/
+.env/
+
+# Python
+# ------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Node.js
+# -------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+.npm
+.eslintcache
+.stylelintcache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.nyc_output
+.grunt
+bower_components
+.lock-wscript
+.node_repl_history
+*.tgz
+*.tar.gz
+.yarn-integrity
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# Next.js
+# -------
+.next/
+out/
+.vercel
+.swc/
+
+# IDEs and Editors
+# ---------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+# ----
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+# ------------
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Database
+# --------
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+# ---------------
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# OS generated files
+# ------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
