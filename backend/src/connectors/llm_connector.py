@@ -16,14 +16,14 @@ class Llmconnector:
             "Content-Type": "application/json"
         }
 
-    def generate_plan(self, usr_prompt: str) -> str:
+    def generate_plan(self, user_prompt: str) -> str:
         system_prompt = (
             "You are an expert software engineer. Your task is to decompose a high-level "
             "business requirement into a detailed, step-by-step plan that a junior developer "
             "could follow. Each step should be a clear, actionable task. Do not generate the code, only the plan."
         )
 
-        full_prompt = f"{system_prompt}\n\nRequirement: {usr_prompt}\n\nPlan:"
+        full_prompt = f"{system_prompt}\n\nRequirement: {user_prompt}\n\nPlan:"
 
         payload = {
             "model" : "llama-4-maverick-17b-128e-instruct",
