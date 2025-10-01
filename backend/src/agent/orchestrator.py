@@ -66,3 +66,53 @@ class MomentumAgent:
 
         if state == AgentState.PLANNING:
             await self.broadcast_status(state_name, "Cloning repository...")
+            self.workspace_dir = self.git_connector.clone_repo()
+
+            self.feature_branch = f"feature/{uuid.uuid4().hex[:6]}"
+            await self.broadcast_status(state_name, f"Creating new branch: {self.feature_branch}")
+            self.git_connector.create_branch(self.feature_branch)
+
+            await self.broadcast_status(state_name, "Thinking! Generating a plan...")
+            self.plan = self.llm_connector.generate_plan(prompt)
+            await self.broadcast_status(state_name, f"Generated Plan:\n{self.plan}")
+            self.state_machine.set_state(AgentState.CODE_GENERATION)
+
+        elif state == AgentState.CODE_GENERATION:
+            await self.broadcast_status(state_name, "Starting up isolated Docker environment...")
+            self.docker_connector.start_container(self.workspace_dir)
+
+            await self.broadcast_status(state_name, "Code Generation in progress...")
+
+            mock_code = "def new_feature():\n    return 'Hello from Momentum!'\n"
+            file_path = "src/new_feature.py"
+
+            await self.broadcast_status(state_name, f"Writing new file: {file_path}")
+            self.docker_connector.write_file(file_path, mock_code)
+            self.state_machine.set_state(AgentState.TESTING)
+
+        elif state == AgentState.TESTING:
+            await self.broadcast_status(state_name, "Generating tests for the new code...")
+            mock_test = "from src.new_feature import new_feature\n\ndef test_new_feature():\n    assert new_feature() == 'Hello from Momentum!'\n"
+            test_path = "tests/test_new_feature.py"
+
+            await self.broadcast_status(state_name, f"Writing test file: {test_path}")
+            self.docker_connector.write_file(test_path, mock_test)
+
+            await self.broadcast_status(state_name, "Running tests inside the container...")
+            exit_code, output = self.docker_connector.run_command("pytest")
+
+            if exit_code == 0:
+                await self.broadcast_status(state_name, "All tests passed!")
+                self.state_machine.set_state(AgentState.AWAITING_REVIEW)
+            else:
+                raise Exception(f"Tests failed:\n{output.decode('utf-8')}")
+
+        elif state == AgentState.AWAITING_REVIEW:
+            await self.broadcast_status(state_name, "Committing changes and pushing to remote repo...")
+            self.git_connector.commit_and_push("Implemented new feature via Momentum Agent", self.feature_branch)
+            await self.broadcast_status(state_name, f"Changes pushed to branch {self.feature_branch}")
+            self.state_machine.set_state(AgentState.DONE)
+
+        else:
+            print(f"Unhandled state: {state_name}")
+            self.state_machine.set_state(AgentState.DONE)
