@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-class Llmconnector:
+class Llamaconnector:
     def __init__(self):
         self.api_url = os.getenv("CEREBRAS_API_URL")
         self.api_key = os.getenv("CEREBRAS_API_KEY")
