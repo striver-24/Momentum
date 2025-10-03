@@ -1,6 +1,7 @@
 import os
 from slack_bolt import App
 from slack_bolt.adapter.fastapi import SlackRequestHandler
+from ..config.config_loader import get_config
 
 slack_app = App(
     token=os.environ.get("SLACK_BOT_TOKEN"),
@@ -15,18 +16,20 @@ def handle_momentum_command(ack, body, say, client, logger):
     
     user_id = body['user_id']
     prompt = body.get('text', '').strip()
+    
+    slack_config = get_config().get_section('slack')
 
     if not prompt:
-        say("Please provide a task description after the command. \nFor example: `/momentum Create a new API endpoint to fetch user profiles.`")
+        say(slack_config['no_prompt_error'])
         return
 
     try:
         initial_msg_response = client.chat_postMessage(
             channel=user_id,
-            text=f"🚀 Got it! Starting work on your request: *'{prompt}'*\n\nI'll keep you updated with a link to the live progress view shortly."
+            text=slack_config['initial_response'].format(prompt=prompt)
         )
         logger.info(f"Received task from Slack user {user_id}: {prompt}")
         
     except Exception as e:
         logger.error(f"Error handling Slack command: {e}")
-        say("Sorry, there was an error starting the agent.")
+        say(slack_config['error_response'])

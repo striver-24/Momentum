@@ -7,6 +7,10 @@ from ..connectors.llm_connector import LlamaConnector
 from ..connectors.docker_connector import DockerConnector
 from ..connectors.git_connector import GitConnector
 from ..connectors.github_connector import GithubConnector
+from ..config.config_loader import (
+    get_config, get_agent_config, get_git_config, get_file_paths,
+    get_language_config, get_prompt_template, get_status_message
+)
 
 load_dotenv()
 
@@ -20,7 +24,7 @@ class MomentumAgent:
         self.pull_request_info = {}
         self.review_comments = []
         self.fix_attempts = 0
-        self.max_fix_attempts = 3
+        self.max_fix_attempts = get_agent_config()['max_fix_attempts']
 
         try:
             self.llm_connector = LlamaConnector()
@@ -34,7 +38,8 @@ class MomentumAgent:
             print(f"Error initializing connectors: {e}")
             self.state_machine.set_state(AgentState.ERROR)
             if self.websocket_manager:
-                self.websocket_manager.broadcast("ERROR!!!", f"initializing connectors: {e}")
+                # Note: Cannot use await in __init__, will broadcast error during first run
+                print("Error will be broadcast during agent run")
 
     async def broadcast_status(self, state: str, message: str):
         if self.websocket_manager:
@@ -50,13 +55,13 @@ class MomentumAgent:
                 await self.execute_state(curr_state, user_prompt)
             except Exception as e:
                 print(f"An error occured in state {curr_state.name}: {e}")
-                await self.broadcast_status("ERROR", f"Failed in state {curr_state.name}: {e}")
+                await self.broadcast_status("ERROR", get_status_message('general', 'error').format(state=curr_state.name, error=e))
                 self.state_machine.set_state(AgentState.ERROR)
 
             curr_state = self.state_machine.get_state()
         
         print(f"Agent run finished with state: {curr_state.name}")
-        await self.broadcast_status("DONE", "Workflow complete.")
+        await self.broadcast_status("DONE", get_status_message('general', 'workflow_complete'))
 
         if self.workspace_dir:
             self.git_connector.cleanup()
@@ -66,53 +71,52 @@ class MomentumAgent:
     async def execute_state(self, state: AgentState, prompt: str):
         state_name = state.name
         print(f"State executing: {state_name}")
-        await self.broadcast_status(state_name, f"State executing: {state_name}")
+        await self.broadcast_status(state_name, get_status_message('general', 'state_executing').format(state=state_name))
 
         if state == AgentState.PLANNING:
-            await self.broadcast_status(state_name, "Cloning repository...")
+            await self.broadcast_status(state_name, get_status_message('planning', 'cloning'))
             self.workspace_dir = self.git_connector.clone_repo()
 
-            self.feature_branch = f"feature/momentum-{uuid.uuid4().hex[:6]}"
-            await self.broadcast_status(state_name, f"Creating new branch: {self.feature_branch}")
+            git_config = get_git_config()
+            self.feature_branch = f"{git_config['branch_prefix']}{uuid.uuid4().hex[:6]}"
+            await self.broadcast_status(state_name, get_status_message('planning', 'creating_branch').format(branch=self.feature_branch))
             self.git_connector.create_branch(self.feature_branch)
 
-            await self.broadcast_status(state_name, "Thinking! Generating a plan...")
-            plan_prompt = f"You are an expert software engineer. Create a concise, step-by-step plan to accomplish the following task. For each step, specify the file to be created or modified. Task: {prompt}"
+            await self.broadcast_status(state_name, get_status_message('planning', 'generating_plan'))
+            planning_prompt = get_prompt_template('planning')
+            plan_prompt = f"{planning_prompt['system']}\n\n{planning_prompt['template'].format(task=prompt)}"
             self.plan = self.llm_connector.generate_text(plan_prompt)
-            await self.broadcast_status(state_name, f"Generated Plan:\n{self.plan}")
+            await self.broadcast_status(state_name, get_status_message('planning', 'plan_generated').format(plan=self.plan))
             self.state_machine.set_state(AgentState.CODE_GENERATION)
 
         elif state == AgentState.CODE_GENERATION:
-            await self.broadcast_status(state_name, "Starting up isolated Docker environment...")
+            await self.broadcast_status(state_name, get_status_message('code_generation', 'starting_docker'))
             self.docker_connector.start_container(self.workspace_dir)
 
-            await self.broadcast_status(state_name, "Beginning dynamic code generation...")
+            await self.broadcast_status(state_name, get_status_message('code_generation', 'beginning_generation'))
             
-            code_gen_prompt = f"""Based on the following plan, please write the Python code for the primary feature.
+            code_gen_template = get_prompt_template('code_generation')
+            code_gen_prompt = code_gen_template.format(
+                language="Python",
+                plan=self.plan
+            )
             
-            **Plan:**
-            {self.plan}
-
-            **Task:** Write the full code for the main Python file. Do not write tests yet.
-            Only output the raw, complete Python code. Do not include any explanations or markdown formatting.
-            """
-            
-            await self.broadcast_status(state_name, "Asking LLM to generate production code...")
+            await self.broadcast_status(state_name, get_status_message('code_generation', 'asking_llm'))
             generated_code = self.llm_connector.generate_text(code_gen_prompt)
             
             if not generated_code:
                 raise Exception("LLM failed to generate production code.")
 
-            file_path = "src/new_feature.py" 
-            await self.broadcast_status(state_name, f"Writing generated code to: {file_path}")
+            file_path = get_file_paths()['default_code_file']
+            await self.broadcast_status(state_name, get_status_message('code_generation', 'writing_file').format(file_path=file_path))
             self.docker_connector.write_file_to_container(file_path, generated_code)
             
             self.state_machine.set_state(AgentState.TESTING)
 
         elif state == AgentState.TESTING:
-            await self.broadcast_status(state_name, "Beginning dynamic test generation...")
+            await self.broadcast_status(state_name, get_status_message('testing', 'beginning_generation'))
             
-            file_path = "src/new_feature.py"
+            file_path = get_file_paths()['default_code_file']
             code_to_test = self.docker_connector.read_file_from_container(file_path)
 
             if not code_to_test:
@@ -120,127 +124,134 @@ class MomentumAgent:
 
             file_extension = os.path.splitext(file_path)[1]
             
-            lang_details_map = {
-                '.py': ('Python', 'pytest', 'python'),
-                '.js': ('JavaScript', 'Jest', 'javascript'),
-                '.ts': ('TypeScript', 'Jest', 'typescript'),
-                '.java': ('Java', 'JUnit', 'java'),
-                '.go': ('Go', "Go's native testing package", 'go'),
-                '.rb': ('Ruby', 'RSpec', 'ruby')
-            }
-            language_name, test_framework, markdown_lang = lang_details_map.get(file_extension, ('the specified language', 'a common testing framework', ''))
-
-            test_gen_prompt = f"""You are a quality assurance engineer. Given the following {language_name} code, please write a test file using `{test_framework}` to verify its functionality.
-
-            **Code to Test:**
-            ```{markdown_lang}
-            {code_to_test}
-            ```
-
-            Only output the raw, complete code for the test file. Do not include any explanations or markdown formatting. Assume the necessary testing libraries are installed.
-            """
+            # Get language config based on file extension
+            language_name = None
+            test_framework = None
+            markdown_lang = None
             
-            await self.broadcast_status(state_name, f"Asking LLM to generate {test_framework} tests...")
+            config = get_config()
+            for lang, lang_config in config.get_section('languages').items():
+                if lang_config['extension'] == file_extension:
+                    language_name = lang.title()
+                    test_framework = lang_config['test_framework']
+                    markdown_lang = lang_config['markdown_lang']
+                    break
+            
+            if not language_name:
+                language_name = 'the specified language'
+                test_framework = 'a common testing framework'
+                markdown_lang = ''
+
+            test_gen_template = get_prompt_template('test_generation')
+            test_gen_prompt = test_gen_template.format(
+                language=language_name,
+                test_framework=test_framework,
+                markdown_lang=markdown_lang,
+                code=code_to_test
+            )
+            
+            await self.broadcast_status(state_name, get_status_message('testing', 'asking_llm').format(test_framework=test_framework))
             generated_test = self.llm_connector.generate_text(test_gen_prompt)
 
             if not generated_test:
                 raise Exception("LLM failed to generate test code.")
 
-            test_path = "tests/test_new_feature.py"
-            await self.broadcast_status(state_name, f"Writing generated test to: {test_path}")
+            test_path = get_file_paths()['default_test_file']
+            await self.broadcast_status(state_name, get_status_message('testing', 'writing_test').format(test_path=test_path))
             self.docker_connector.write_file_to_container(test_path, generated_test)
 
-            await self.broadcast_status(state_name, f"Running dynamically generated tests with {test_framework}...")
-            test_command = "pytest"
+            # Get test command from language config
+            test_command = "pytest"  # default fallback
+            for lang, lang_config in config.get_section('languages').items():
+                if lang_config['extension'] == file_extension:
+                    test_command = lang_config['test_command']
+                    break
+            
+            await self.broadcast_status(state_name, get_status_message('testing', 'running_tests').format(test_framework=test_framework))
             exit_code, output = self.docker_connector.run_command(test_command)
 
             if exit_code == 0:
-                await self.broadcast_status(state_name, "All generated tests passed!")
+                await self.broadcast_status(state_name, get_status_message('testing', 'tests_passed'))
                 self.state_machine.set_state(AgentState.AWAITING_REVIEW)
             else:
-                raise Exception(f"Dynamically generated tests failed:\n{output.decode('utf-8')}")
+                raise Exception(get_status_message('testing', 'tests_failed').format(output=output.decode('utf-8')))
 
         elif state == AgentState.AWAITING_REVIEW:
             if not self.pull_request_info:
-                await self.broadcast_status(state_name, "Committing changes and pushing to remote repo...")
-                self.git_connector.commit_and_push("feat: Implement new feature via Momentum Agent", self.feature_branch)
-                await self.broadcast_status(state_name, f"Changes pushed to branch {self.feature_branch}")
+                git_config = get_git_config()
+                await self.broadcast_status(state_name, get_status_message('review', 'committing'))
+                self.git_connector.commit_and_push(git_config['commit_messages']['feature'], self.feature_branch)
+                await self.broadcast_status(state_name, get_status_message('review', 'pushed').format(branch=self.feature_branch))
                 
-                await self.broadcast_status(state_name, "Creating Pull Request...")
-                self.pull_request_info = self.github_connector.create_pull_request(self.feature_branch, "main", "New Feature by Momentum", "This PR was auto-generated by the Momentum AI agent.")
-                await self.broadcast_status(state_name, f"Pull Request created: {self.pull_request_info.get('html_url')}")
+                await self.broadcast_status(state_name, get_status_message('review', 'creating_pr'))
+                pr_config = get_config().get_section('pull_request')
+                self.pull_request_info = self.github_connector.create_pull_request(self.feature_branch, git_config['default_base_branch'], pr_config['title'], pr_config['body'])
+                await self.broadcast_status(state_name, get_status_message('review', 'pr_created').format(url=self.pull_request_info.get('html_url')))
 
-            await self.broadcast_status(state_name, "Waiting for CodeRabbitAI review... (will check for 5 mins)")
+            await self.broadcast_status(state_name, get_status_message('review', 'waiting_review'))
             self.review_comments = self.github_connector.get_pr_review_comments(self.pull_request_info['number'])
 
             if self.review_comments:
-                await self.broadcast_status(state_name, f"Found {len(self.review_comments)} comments. Transitioning to FIXING.")
+                await self.broadcast_status(state_name, get_status_message('review', 'comments_found').format(count=len(self.review_comments)))
                 self.state_machine.set_state(AgentState.FIXING)
             else:
-                await self.broadcast_status(state_name, "No review comments found. All done!")
+                await self.broadcast_status(state_name, get_status_message('review', 'no_comments'))
                 self.state_machine.set_state(AgentState.DONE)
 
         elif state == AgentState.FIXING:
-            if self.fix_attempts >= self.max_fix_attempts:
+            agent_config = get_agent_config()
+            if self.fix_attempts >= agent_config['max_fix_attempts']:
                 raise Exception("Maximum fix attempts reached. Halting to prevent infinite loop.")
             
             self.fix_attempts += 1
-            await self.broadcast_status(state_name, f"Starting self-correction attempt #{self.fix_attempts}...")
+            await self.broadcast_status(state_name, get_status_message('fixing', 'starting_attempt').format(attempt=self.fix_attempts))
 
-            target_file = "src/new_feature.py" 
+            target_file = get_file_paths()['default_code_file']
             file_extension = os.path.splitext(target_file)[1]
 
-            lang_map = {
-                '.py': ('Python', 'python'),
-                '.js': ('JavaScript', 'javascript'),
-                '.ts': ('TypeScript', 'typescript'),
-                '.java': ('Java', 'java'),
-                '.go': ('Go', 'go'),
-                '.rb': ('Ruby', 'ruby'),
-                '.html': ('HTML', 'html'),
-                '.css': ('CSS', 'css'),
-            }
-            language_name, markdown_lang = lang_map.get(file_extension, ('code', ''))
+            # Get language config based on file extension
+            language_name = "code"
+            markdown_lang = ""
+            
+            config = get_config()
+            for lang, lang_config in config.get_section('languages').items():
+                if lang_config['extension'] == file_extension:
+                    language_name = lang.title()
+                    markdown_lang = lang_config['markdown_lang']
+                    break
 
             combined_feedback = "\n".join([comment['body'] for comment in self.review_comments])
 
-            await self.broadcast_status(state_name, f"Reading original code from {target_file}...")
+            await self.broadcast_status(state_name, get_status_message('fixing', 'reading_code').format(file=target_file))
             original_code = self.docker_connector.read_file_from_container(target_file)
 
             if not original_code:
                 raise Exception(f"Could not read the file {target_file} to apply fixes.")
 
-            fixer_prompt = f"""The following {language_name} code has issues that need to be fixed.
+            fixer_template = get_prompt_template('code_fixing')
+            fixer_prompt = fixer_template.format(
+                language=language_name,
+                markdown_lang=markdown_lang,
+                original_code=original_code,
+                feedback=combined_feedback
+            )
 
-**Original Code:**
-```{markdown_lang}
-{original_code}
-```
-
-**Review Feedback:**
-```
-{combined_feedback}
-```
-
-Please rewrite the entire {language_name} file to address all the feedback points mentioned in the review.
-Only provide the complete, corrected {language_name} code. Do not include any explanations or apologies.
-"""
-
-            await self.broadcast_status(state_name, "Asking LLM to generate corrected code...")
+            await self.broadcast_status(state_name, get_status_message('fixing', 'asking_llm'))
             corrected_code = self.llm_connector.generate_text(fixer_prompt)
 
             if not corrected_code:
                 raise Exception("LLM failed to generate a corrected version of the code.")
 
-            await self.broadcast_status(state_name, "Applying fixes...")
+            await self.broadcast_status(state_name, get_status_message('fixing', 'applying_fixes'))
             self.docker_connector.write_file_to_container(target_file, corrected_code)
 
-            await self.broadcast_status(state_name, "Committing and pushing the code fixes...")
-            commit_message = f"fix: Address review comments (Attempt #{self.fix_attempts})"
+            await self.broadcast_status(state_name, get_status_message('fixing', 'committing_fixes'))
+            git_config = get_git_config()
+            commit_message = git_config['commit_messages']['fix'].format(attempt=self.fix_attempts)
             self.git_connector.commit_and_push(commit_message, self.feature_branch)
 
             self.review_comments = []
-            await self.broadcast_status(state_name, "Fixes pushed. Returning to AWAITING_REVIEW state.")
+            await self.broadcast_status(state_name, get_status_message('fixing', 'fixes_pushed'))
             self.state_machine.set_state(AgentState.AWAITING_REVIEW)
 
         else:
