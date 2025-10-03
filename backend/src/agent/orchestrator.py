@@ -20,7 +20,7 @@ class MomentumAgent:
         self.pull_request_info = {}
         self.review_comments = []
         self.fix_attempts = 0
-        self.max_fix_attempts = 3 # To prevent infinite loops
+        self.max_fix_attempts = 3
 
         try:
             self.llm_connector = LlamaConnector()
@@ -77,7 +77,8 @@ class MomentumAgent:
             self.git_connector.create_branch(self.feature_branch)
 
             await self.broadcast_status(state_name, "Thinking! Generating a plan...")
-            self.plan = self.llm_connector.generate_text(f"Create a plan for: {prompt}")
+            plan_prompt = f"You are an expert software engineer. Create a concise, step-by-step plan to accomplish the following task. For each step, specify the file to be created or modified. Task: {prompt}"
+            self.plan = self.llm_connector.generate_text(plan_prompt)
             await self.broadcast_status(state_name, f"Generated Plan:\n{self.plan}")
             self.state_machine.set_state(AgentState.CODE_GENERATION)
 
@@ -85,37 +86,88 @@ class MomentumAgent:
             await self.broadcast_status(state_name, "Starting up isolated Docker environment...")
             self.docker_connector.start_container(self.workspace_dir)
 
-            await self.broadcast_status(state_name, "Code Generation in progress...")
-            mock_code = "def new_feature():\n    return 'Hello from Momentum!'\n"
-            file_path = "src/new_feature.py"
-            await self.broadcast_status(state_name, f"Writing new file: {file_path}")
-            self.docker_connector.write_file_to_container(file_path, mock_code)
+            await self.broadcast_status(state_name, "Beginning dynamic code generation...")
+            
+            code_gen_prompt = f"""Based on the following plan, please write the Python code for the primary feature.
+            
+            **Plan:**
+            {self.plan}
+
+            **Task:** Write the full code for the main Python file. Do not write tests yet.
+            Only output the raw, complete Python code. Do not include any explanations or markdown formatting.
+            """
+            
+            await self.broadcast_status(state_name, "Asking LLM to generate production code...")
+            generated_code = self.llm_connector.generate_text(code_gen_prompt)
+            
+            if not generated_code:
+                raise Exception("LLM failed to generate production code.")
+
+            file_path = "src/new_feature.py" 
+            await self.broadcast_status(state_name, f"Writing generated code to: {file_path}")
+            self.docker_connector.write_file_to_container(file_path, generated_code)
+            
             self.state_machine.set_state(AgentState.TESTING)
 
         elif state == AgentState.TESTING:
-            await self.broadcast_status(state_name, "Generating tests for the new code...")
-            mock_test = "from src.new_feature import new_feature\n\ndef test_new_feature():\n    assert new_feature() == 'Hello from Momentum!'\n"
-            test_path = "tests/test_new_feature.py"
-            await self.broadcast_status(state_name, f"Writing test file: {test_path}")
-            self.docker_connector.write_file_to_container(test_path, mock_test)
+            await self.broadcast_status(state_name, "Beginning dynamic test generation...")
+            
+            file_path = "src/new_feature.py"
+            code_to_test = self.docker_connector.read_file_from_container(file_path)
 
-            await self.broadcast_status(state_name, "Running tests inside the container...")
-            exit_code, output = self.docker_connector.run_command("pytest")
+            if not code_to_test:
+                 raise Exception(f"Could not read file {file_path} to generate tests.")
+
+            file_extension = os.path.splitext(file_path)[1]
+            
+            lang_details_map = {
+                '.py': ('Python', 'pytest', 'python'),
+                '.js': ('JavaScript', 'Jest', 'javascript'),
+                '.ts': ('TypeScript', 'Jest', 'typescript'),
+                '.java': ('Java', 'JUnit', 'java'),
+                '.go': ('Go', "Go's native testing package", 'go'),
+                '.rb': ('Ruby', 'RSpec', 'ruby')
+            }
+            language_name, test_framework, markdown_lang = lang_details_map.get(file_extension, ('the specified language', 'a common testing framework', ''))
+
+            test_gen_prompt = f"""You are a quality assurance engineer. Given the following {language_name} code, please write a test file using `{test_framework}` to verify its functionality.
+
+            **Code to Test:**
+            ```{markdown_lang}
+            {code_to_test}
+            ```
+
+            Only output the raw, complete code for the test file. Do not include any explanations or markdown formatting. Assume the necessary testing libraries are installed.
+            """
+            
+            await self.broadcast_status(state_name, f"Asking LLM to generate {test_framework} tests...")
+            generated_test = self.llm_connector.generate_text(test_gen_prompt)
+
+            if not generated_test:
+                raise Exception("LLM failed to generate test code.")
+
+            test_path = "tests/test_new_feature.py"
+            await self.broadcast_status(state_name, f"Writing generated test to: {test_path}")
+            self.docker_connector.write_file_to_container(test_path, generated_test)
+
+            await self.broadcast_status(state_name, f"Running dynamically generated tests with {test_framework}...")
+            test_command = "pytest"
+            exit_code, output = self.docker_connector.run_command(test_command)
 
             if exit_code == 0:
-                await self.broadcast_status(state_name, "All tests passed!")
+                await self.broadcast_status(state_name, "All generated tests passed!")
                 self.state_machine.set_state(AgentState.AWAITING_REVIEW)
             else:
-                raise Exception(f"Tests failed:\n{output.decode('utf-8')}")
+                raise Exception(f"Dynamically generated tests failed:\n{output.decode('utf-8')}")
 
         elif state == AgentState.AWAITING_REVIEW:
-            if not self.pull_request_info: # Only create PR on first entry
+            if not self.pull_request_info:
                 await self.broadcast_status(state_name, "Committing changes and pushing to remote repo...")
                 self.git_connector.commit_and_push("feat: Implement new feature via Momentum Agent", self.feature_branch)
                 await self.broadcast_status(state_name, f"Changes pushed to branch {self.feature_branch}")
                 
                 await self.broadcast_status(state_name, "Creating Pull Request...")
-                self.pull_request_info = self.github_connector.create_pull_request(self.feature_branch, "main", "New Feature by Momentum", "This PR was auto-generated.")
+                self.pull_request_info = self.github_connector.create_pull_request(self.feature_branch, "main", "New Feature by Momentum", "This PR was auto-generated by the Momentum AI agent.")
                 await self.broadcast_status(state_name, f"Pull Request created: {self.pull_request_info.get('html_url')}")
 
             await self.broadcast_status(state_name, "Waiting for CodeRabbitAI review... (will check for 5 mins)")
@@ -135,12 +187,9 @@ class MomentumAgent:
             self.fix_attempts += 1
             await self.broadcast_status(state_name, f"Starting self-correction attempt #{self.fix_attempts}...")
 
-            # In a real scenario, the target file would be extracted from the review comment.
-            # For now, we use a placeholder and make the prompt dynamic based on its extension.
             target_file = "src/new_feature.py" 
             file_extension = os.path.splitext(target_file)[1]
 
-            # Map file extensions to language names for dynamic prompt generation
             lang_map = {
                 '.py': ('Python', 'python'),
                 '.js': ('JavaScript', 'javascript'),
@@ -161,7 +210,6 @@ class MomentumAgent:
             if not original_code:
                 raise Exception(f"Could not read the file {target_file} to apply fixes.")
 
-            # Dynamic prompt that adapts to the language of the file being fixed.
             fixer_prompt = f"""The following {language_name} code has issues that need to be fixed.
 
 **Original Code:**
