@@ -21,7 +21,7 @@ class GithubConnector:
             "Accept": "application/vnd.github.v3+json",
         } 
 
-    def create_pull_request(slef, title: str, head_branch: str, base_branch: str = "main", body: str = " "):
+    def create_pull_request(self, title: str, head_branch: str, base_branch: str = "main", body: str = " "):
         pr_url = f"{self.api_base_url}/pulls"
         payload = {
             "title": title,
