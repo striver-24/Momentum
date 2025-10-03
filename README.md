@@ -1,7 +1,8 @@
 # Momentum - Flow-State Engineering Agent 🚀
 
 [![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/striver-24/Momentum)
-[![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.12+-green.svg)](https://python.org)
+[![Next.js](https://img.shields.io/badge/Next.js-14.0-black.svg)](https://nextjs.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 An autonomous software development agent that transforms high-level business requirements into production-ready code through automated development loops.
@@ -10,10 +11,20 @@ An autonomous software development agent that transforms high-level business req
 
 Momentum is designed to radically accelerate software development by automating the entire inner development loop. Simply provide natural language requirements, and receive fully tested, documented, and production-ready code in the form of a pull request.
 
+### ✨ Current Status
+- ✅ **Backend API**: FastAPI server running on port 8000
+- ✅ **Frontend**: Next.js React application on port 3000  
+- ✅ **Configuration System**: Centralized YAML-based configuration
+- ✅ **LLM Integration**: Custom Cerebras model support (llama-4-scout-17b-16e-instruct)
+- ✅ **Development Environment**: Fully functional with live reloading
+- 🚧 **Agent Orchestration**: In development
+- 🚧 **GitHub Integration**: Planned
+
 ### Key Features
 
 - **Natural Language Input**: Submit requirements in plain English
-- **Autonomous Development**: Complete feature implementation from planning to PR
+- **Centralized Configuration**: YAML-based configuration system for easy customization
+- **Modern Stack**: FastAPI backend + Next.js frontend with TypeScript
 - **AI-Powered Quality Assurance**: Integrated CodeRabbitAI review process
 - **Isolated Execution**: Docker-based containerization for safe code execution
 - **Self-Correction**: Automatic bug fixing based on AI feedback
@@ -23,191 +34,278 @@ Momentum is designed to radically accelerate software development by automating 
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   User Input    │───▶│  Orchestration   │───▶│   LLM Core      │
-│   (CLI/Web)     │    │     Engine       │    │ (Llama/Cerebras)│
+│   Frontend      │───▶│  FastAPI Backend │───▶│   LLM Core      │
+│  (Next.js)      │    │   (Port 8000)    │    │ (Cerebras AI)   │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                 │                        │
                                 ▼                        ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│ Vector Database │    │    Execution     │    │  Code Quality   │
-│ (ChromaDB/Pine) │    │ Environment      │    │ & Verification  │
-│                 │    │   (Docker MCP)   │    │ (CodeRabbitAI)  │
+│ Vector Database │    │ Config System    │    │  Code Quality   │
+│ (ChromaDB)      │    │ (config.yaml)    │    │ & Verification  │
+│                 │    │                  │    │ (CodeRabbitAI)  │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
 ## 🛠️ Technology Stack
 
-- **Orchestration**: Python 3.10+, LangChain/LangGraph, FastAPI
-- **LLM & Compute**: Meta Llama 3 on Cerebras Cloud
-- **Containerization**: Docker / Mirantis Container Platform (MCP)
-- **Code Review**: CodeRabbitAI + GitHub integration
-- **Version Control**: Git (GitHub/GitLab)
-- **Vector Database**: ChromaDB (local) / Pinecone (cloud)
-- **Frontend**: Next.js (optional web interface)
+- **Backend**: Python 3.12+, FastAPI, Uvicorn
+- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS  
+- **Configuration**: YAML-based centralized config system
+- **LLM & Compute**: Custom Cerebras model (llama-4-scout-17b-16e-instruct)
+- **Vector Database**: ChromaDB (local)
+- **Development**: Hot reloading, CORS enabled for local development
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.10 or higher
-- Docker Desktop
+- Python 3.12 or higher
+- Node.js 18+ and npm
 - Git
-- GitHub account with CodeRabbitAI app installed
+- GitHub account (for future integration)
 
-### Installation
+### Installation & Setup
 
 1. **Clone the repository**
-
    ```bash
    git clone https://github.com/striver-24/Momentum.git
    cd Momentum
    ```
-2. **Set up the backend**
 
+2. **Backend Setup**
    ```bash
    cd backend
+   
+   # Create and activate virtual environment
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
+   
+   # Install dependencies
    pip install -r requirements.txt
    ```
-3. **Set up the frontend (optional)**
 
+3. **Frontend Setup**
    ```bash
    cd apps/frontend
+   
+   # Install dependencies
    npm install
    ```
-4. **Configure environment variables**
 
-   ```bash
-   cp backend/.env.example backend/.env
-   # Edit .env with your API keys and configuration
+4. **Configuration**
+   
+   The application uses a centralized configuration system. Main config is in `backend/config.yaml`:
+   
+   ```yaml
+   # Key configurations (automatically loaded)
+   models:
+     llm:
+       name: "llama-4-scout-17b-16e-instruct"  # Custom Cerebras model
+       max_tokens: 500
+       temperature: 0.5
+     embedding:
+       name: "all-MiniLM-L6-v2"
+   
+   vector_db:
+     type: "chromadb"
+     path: "backend/chroma_db"
+   
+   # See backend/config.yaml for full configuration options
    ```
 
-### Environment Configuration
+### Running the Application
 
-Create a `.env` file in the `backend` directory with:
+1. **Start the Backend** (Terminal 1)
+   ```bash
+   cd backend
+   source venv/bin/activate
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+   Backend will be available at: http://localhost:8000
 
-```env
-# Cerebras Cloud API
-CEREBRAS_API_KEY=your_cerebras_api_key
-CEREBRAS_MODEL=llama3-70b
+2. **Start the Frontend** (Terminal 2)
+   ```bash
+   cd apps/frontend
+   npm run dev
+   ```
+   Frontend will be available at: http://localhost:3000
 
-# GitHub Configuration
-GITHUB_TOKEN=your_github_token
-GITHUB_REPO_OWNER=your_username
-GITHUB_REPO_NAME=your_repo
+3. **Verify Setup**
+   - Backend API docs: http://localhost:8000/docs
+   - Configuration test: http://localhost:8000/config
+   - Frontend interface: http://localhost:3000
 
-# CodeRabbitAI
-CODERABBITAI_WEBHOOK_SECRET=your_webhook_secret
+## 📖 API Reference
+
+### Backend Endpoints
+
+#### Health Check
+```http
+GET http://localhost:8000/
+```
+Response: `{"status": "ok", "message": "Orchestrator is running"}`
+
+#### Configuration Info
+```http
+GET http://localhost:8000/config
+```
+Returns current configuration including LLM model and settings.
+
+#### Agent Execution
+```http
+POST http://localhost:8000/agent/run
+Content-Type: application/json
+
+{
+  "prompt": "Create a simple hello world function"
+}
+```
+
+## 🔧 Configuration System
+
+### Centralized Config (`backend/config.yaml`)
+
+The application features a comprehensive YAML-based configuration system:
+
+```yaml
+# Model Configuration
+models:
+  llm:
+    name: "llama-4-scout-17b-16e-instruct"
+    max_tokens: 500
+    temperature: 0.5
+    timeout: 60
+  embedding:
+    name: "all-MiniLM-L6-v2"
+    show_progress: true
 
 # Vector Database
-VECTOR_DB_TYPE=chromadb  # or pinecone
-PINECONE_API_KEY=your_pinecone_key  # if using Pinecone
+vector_db:
+  type: "chromadb"
+  path: "backend/chroma_db"
+  collection_name: "codebase_memory"
 
-# Docker MCP
-DOCKER_HOST=unix:///var/run/docker.sock
+# File System Settings
+file_system:
+  default_code_file: "src/new_feature.py"
+  default_test_file: "tests/test_new_feature.py"
+
+# Prompts and Templates
+prompts:
+  planning:
+    system: "You are an expert software engineer..."
+    template: "Task: {task}"
+  
+# See full config.yaml for all available options
 ```
 
-## 📖 Usage
+### Config Access in Code
 
-### Command Line Interface
+```python
+from config.config_loader import ConfigLoader
 
-```bash
-# Start the orchestration engine
-python backend/main.py
-
-# Submit a feature request
-python -m src.agent.orchestrator --request "Create a user authentication system with JWT tokens"
-
-# Monitor progress
-python -m src.agent.orchestrator --status
-
-# List completed features
-python -m src.agent.orchestrator --list
-```
-
-### Web Interface (Optional)
-
-```bash
-# Start the frontend
-cd apps/frontend
-npm run dev
-
-# Open browser to http://localhost:3000
+config = ConfigLoader()
+llm_model = config.get("models.llm.name")
+max_tokens = config.get("models.llm.max_tokens")
+vector_db_path = config.get("vector_db.path")
 ```
 
 ## 🔄 Development Workflow
 
-### 1. Requirement Submission
+### Current Implementation Status
+
+#### ✅ **Working Features**
+1. **Configuration Management**: Centralized YAML config system
+2. **Backend API**: FastAPI server with live reloading
+3. **Frontend Interface**: Next.js React application
+4. **API Integration**: Frontend can communicate with backend
+5. **Custom LLM Support**: Cerebras model integration ready
+
+#### 🚧 **In Development**
+1. **Agent Orchestration**: Task planning and execution
+2. **Code Generation**: Automated code creation workflow
+3. **GitHub Integration**: PR creation and management
+4. **Vector Database**: Codebase memory and search
+
+### 1. Current Workflow
 
 ```
-"Implement a feature to allow users to reset their password. 
-It needs an API endpoint that takes an email, generates a unique token, 
-saves it to the database with an expiry, and sends a reset link."
+User Input (Frontend) → Agent API → Configuration → Mock Response
 ```
 
-### 2. Automated Process
-
-1. **Planning**: LLM breaks down the requirement into tasks
-2. **Code Generation**: Creates implementation in isolated Docker container
-3. **Testing**: Generates and runs comprehensive tests
-4. **Documentation**: Auto-generates API docs and comments
-5. **PR Creation**: Commits to feature branch and opens pull request
-6. **AI Review**: CodeRabbitAI performs automated code review
-7. **Self-Correction**: Fixes issues based on review feedback
-8. **Final Approval**: Ready for human review and merge
-
-### 3. Quality Assurance
-
-- Automated testing (unit, integration, e2e)
-- Code style and formatting checks
-- Security vulnerability scanning
-- Performance optimization suggestions
-- Documentation completeness validation
+### 2. Planned Automated Process
 
 ## 📁 Project Structure
 
 ```
 Momentum/
-├── backend/                 # Python orchestration engine
+├── backend/                     # FastAPI backend server
 │   ├── src/
-│   │   ├── agent/          # Core agent logic
-│   │   │   └── orchestrator.py
-│   │   ├── api/            # FastAPI endpoints
-│   │   └── connectors/     # External service integrations
-│   │       └── llm_connector.py
-│   ├── main.py             # Application entry point
-│   └── requirements.txt    # Python dependencies
+│   │   ├── config/             # Configuration management
+│   │   │   └── config_loader.py
+│   │   ├── agent/              # Core agent logic
+│   │   │   ├── orchestrator.py
+│   │   │   └── state_machine.py
+│   │   ├── api/                # FastAPI endpoints
+│   │   │   ├── main.py
+│   │   │   └── websocket_manager.py
+│   │   └── connectors/         # External service integrations
+│   │       ├── llm_connector.py
+│   │       ├── vector_db_connector.py
+│   │       ├── slack_connector.py
+│   │       ├── github_connector.py
+│   │       ├── git_connector.py
+│   │       └── docker_connector.py
+│   ├── config.yaml             # Centralized configuration
+│   ├── main.py                 # Application entry point
+│   ├── requirements.txt        # Python dependencies
+│   └── .env                    # Environment variables
 ├── apps/
-│   └── frontend/           # Next.js web interface (optional)
+│   └── frontend/               # Next.js web interface
 │       ├── app/
-│       │   └── page.tsx
-│       └── package.json
+│       │   ├── page.tsx        # Main chat interface
+│       │   ├── layout.tsx      # App layout
+│       │   └── globals.css     # Global styles
+│       ├── package.json
+│       ├── next.config.js
+│       ├── tailwind.config.js
+│       ├── tsconfig.json
+│       └── postcss.config.js
 ├── .gitignore
+├── package.json                # Root package.json
 └── README.md
 ```
 
 ## 🧩 Core Components
 
-### Orchestration Engine
+### Configuration System (`backend/src/config/`)
 
-The central brain that manages the entire development workflow, from task decomposition to final PR creation.
+Centralized YAML-based configuration management:
+- **ConfigLoader**: Handles loading and accessing configuration with dot notation
+- **Validation**: Ensures all required configuration sections are present
+- **Environment Support**: Seamless integration with environment variables
 
-### LLM Connector
+### Backend API (`backend/main.py`)
 
-Handles all communication with Meta Llama models running on Cerebras Cloud infrastructure for maximum performance.
+FastAPI server with:
+- **CORS Support**: Enabled for frontend development
+- **Configuration Integration**: Live config loading and testing endpoints
+- **Agent Endpoints**: RESTful API for agent interaction
 
-### Docker MCP Integration
+### Frontend Interface (`apps/frontend/`)
 
-Provides isolated execution environments for safe code generation, testing, and validation.
+Modern Next.js application featuring:
+- **TypeScript**: Full type safety
+- **Tailwind CSS**: Modern styling framework
+- **React 18**: Latest React features with SSR support
+- **Real-time UI**: Chat interface with workflow visualization
 
-### Vector Database
+### Agent System (`backend/src/agent/`)
 
-Maintains long-term memory of codebase patterns, architectural decisions, and development history.
-
-### CodeRabbitAI Integration
-
-Automated code review system that catches bugs, enforces best practices, and prevents AI hallucinations.
+Core orchestration components:
+- **Orchestrator**: Main agent coordination logic
+- **State Machine**: Workflow state management
+- **Connectors**: External service integrations
 
 ## 🎛️ Configuration
 
@@ -306,6 +404,83 @@ docker-compose up -d
 # Configuration files provided for AWS, GCP, Azure
 ```
 
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### Backend Won't Start
+
+```bash
+# Check Python virtual environment
+cd backend
+source venv/bin/activate
+python --version  # Should be 3.12+
+
+# Verify dependencies
+pip list | grep fastapi
+
+# Check configuration
+python -c "from src.config.config_loader import ConfigLoader; print('Config OK')"
+```
+
+#### Frontend Build Issues
+
+```bash
+# Clear cache and reinstall
+cd apps/frontend
+rm -rf node_modules package-lock.json
+npm install
+
+# Check Next.js version
+npx next --version  # Should be 14.0+
+```
+
+#### Configuration Problems
+
+```bash
+# Test configuration loading
+cd backend
+python -c "
+from src.config.config_loader import ConfigLoader
+config = ConfigLoader()
+print(f'LLM Model: {config.get(\"models.llm.name\")}')
+"
+```
+
+#### Port Conflicts
+
+```bash
+# Check if ports are in use
+lsof -i :8000  # Backend port
+lsof -i :3000  # Frontend port
+
+# Kill processes if needed
+kill -9 <PID>
+```
+
+#### API Connection Issues
+
+```bash
+# Test backend API directly
+curl http://localhost:8000/
+curl http://localhost:8000/config
+
+# Check CORS settings in main.py
+# Ensure frontend URL is in allow_origins
+```
+
+### Development Tips
+
+#### Live Reloading
+- Backend: Uvicorn automatically reloads on file changes
+- Frontend: Next.js hot reloads on component changes
+- Config: Changes to `config.yaml` require backend restart
+
+#### Debugging
+- Backend logs: Check terminal running uvicorn
+- Frontend logs: Check browser developer console
+- API testing: Use http://localhost:8000/docs for Swagger UI
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -320,36 +495,53 @@ docker-compose up -d
 
 ### Phase 1: Foundation ✅
 
-- [x] Basic orchestration engine
-- [x] LLM integration with Cerebras
-- [x] Docker MCP setup
-- [x] GitHub integration
+- [x] Basic orchestration engine setup
+- [x] Centralized configuration system (YAML-based)
+- [x] FastAPI backend with CORS support
+- [x] Next.js frontend with TypeScript
+- [x] Configuration loading and validation
 - [x] Project structure setup
-- [x] Environment configuration (`.env` support)
-- [x] Git repository cleanup and `.gitignore` setup
-- [x] Comprehensive README documentation
-- [x] FastAPI backend framework
-- [x] WebSocket support for real-time communication
-- [x] State machine architecture
-- [x] Docker connector implementation
-- [x] Git connector implementation
-- [x] Frontend application structure (Next.js)
+- [x] Environment configuration support
+- [x] Git repository setup with proper .gitignore
+- [x] Comprehensive documentation
+- [x] Development environment with live reloading
+- [x] API endpoint structure (/config, /agent/run)
+- [x] Frontend-backend integration testing
 
-### Phase 2: Core Features 🚧
+### Phase 2: Core Agent Features 🚧
 
-- [x] Basic connector interfaces
-- [ ] Vector database integration
-- [ ] Advanced prompt engineering
-- [ ] CodeRabbitAI review loop
-- [ ] Self-correction mechanisms
+- [x] Basic agent API endpoints
+- [x] Configuration system integration
+- [x] Custom LLM model support (Cerebras)
+- [ ] Vector database integration (ChromaDB)
 - [ ] Complete LLM connector implementation
-- [ ] Task decomposition logic
+- [ ] Task decomposition and planning logic
 - [ ] Code generation workflows
+- [ ] Agent orchestration engine
+- [ ] State machine implementation
 
-### Phase 3: Enhanced Capabilities 📋
+### Phase 3: Advanced Capabilities �
 
+- [ ] GitHub integration and PR creation
+- [ ] CodeRabbitAI review integration
+- [ ] Docker containerization for code execution
+- [ ] Advanced prompt engineering
+- [ ] Self-correction mechanisms
 - [ ] Multi-language support
 - [ ] Advanced testing strategies
+- [ ] Performance optimization
+- [ ] Security scanning integration
+
+### Phase 4: Production Features 📋
+
+- [ ] Slack integration
+- [ ] WebSocket real-time updates
+- [ ] Database integration
+- [ ] Logging and monitoring
+- [ ] Advanced web interface features
+- [ ] Team collaboration tools
+- [ ] Analytics and reporting
+- [ ] CLI interface enhancements
 - [ ] Performance optimization
 - [ ] Security scanning integration
 - [ ] Database integration
