@@ -7,7 +7,7 @@ models:
     name: "all-MiniLM-L6-v2"
     show_progress: true
   llm:
-    name: "llama-4-maverick-17b-128e-instruct"
+    name: "llama-4-scout-17b-16e-instruct"
     max_tokens: 500
     temperature: 0.5
     timeout: 60

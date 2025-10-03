@@ -14,7 +14,7 @@ class ConfigLoader:
     
     def __init__(self, config_path: Optional[str] = None):
         if config_path is None:
-            config_path = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
+            config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config.yaml')
         
         self.config_path = Path(config_path)
         self._config = None

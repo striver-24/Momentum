@@ -14,7 +14,7 @@ class AgentState(Enum):
     DONE = auto()
     ERROR = auto()
 
-class StateMachine:
+class AgentStateMachine:
     """
     Class to manage agents curr state. 
     """
@@ -22,13 +22,13 @@ class StateMachine:
     def __init__(self):
         self.curr_state = AgentState.STARTING
     
-    def transition_to(self, new_state: AgentState):
+    def set_state(self, new_state: AgentState):
         """
-        Transitioning to a new state.
+        Set to a new state.
         """
         print(f"Transitioning from {self.curr_state} to {new_state}")
         self.curr_state = new_state
-
+    
     def get_state(self) -> AgentState:
         """
         Get the current state.
